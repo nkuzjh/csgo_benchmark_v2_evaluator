@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "benchmark_id": "csgo_benchmark_v2",
+  "task": "localization",
+  "split": "seen_discrete_test",
+  "map_name": "cs_agency",
+  "coverage_complete": true,
+  "coverage": {
+    "expected_count": 2000,
+    "prediction_count": 2000,
+    "common_count": 2000,
+    "coverage_gt": 1,
+    "coverage_pred": 1
+  },
+  "metrics_ordered": {
+    "XY_Dist": 323.33953857421875,
+    "Z_Dist": 50.74029541015625,
+    "Pitch_Dist": 7.485441207885742,
+    "Yaw_Dist": 87.93791198730469
+  },
+  "benchmark_manifest": "/home/jiahao/task/UniLIP/data/csgo_benchmark_v2/benchmark_manifest.json",
+  "benchmark_manifest_sha256": "4debad27e0d481d31587a537325d6781247934551a7248885e686ed94046ba47",
+  "minimal_dataset_report": "/home/jiahao/task/UniLIP/data/csgo_benchmark_v2/minimal_dataset_report.json",
+  "minimal_dataset_report_sha256": "1b7eff2206934f25c03de6aecd445b8094a3940ad875f9cd1803fe953c0185a4",
+  "evaluator_config": "/home/jiahao/task/csgo_benchmark_v2_eval_general/benchmark_v2.yaml",
+  "details": {
+    "split": "seen_discrete_test",
+    "predictions_jsonl": "/home/jiahao/task/X-VLA/outputs/csgo_benchmark_v2_seen10/X-VLA/seed_0/localization/predictions.jsonl",
+    "prediction_pose_space": "normalized"
+  }
+}

@@ -1,0 +1,169 @@
+{
+  "schema_version": 1,
+  "benchmark_id": "csgo_benchmark_v2",
+  "task": "localization",
+  "split": "seen_discrete_test",
+  "maps": [
+    "cs_agency",
+    "cs_italy",
+    "de_ancient",
+    "de_anubis",
+    "de_dust2",
+    "de_inferno",
+    "de_mirage",
+    "de_nuke",
+    "de_overpass",
+    "de_train"
+  ],
+  "coverage_complete": true,
+  "coverage_by_map": {
+    "cs_agency": {
+      "expected_count": 2000,
+      "prediction_count": 2000,
+      "common_count": 2000,
+      "coverage_gt": 1,
+      "coverage_pred": 1
+    },
+    "cs_italy": {
+      "expected_count": 2000,
+      "prediction_count": 2000,
+      "common_count": 2000,
+      "coverage_gt": 1,
+      "coverage_pred": 1
+    },
+    "de_ancient": {
+      "expected_count": 2000,
+      "prediction_count": 2000,
+      "common_count": 2000,
+      "coverage_gt": 1,
+      "coverage_pred": 1
+    },
+    "de_anubis": {
+      "expected_count": 2000,
+      "prediction_count": 2000,
+      "common_count": 2000,
+      "coverage_gt": 1,
+      "coverage_pred": 1
+    },
+    "de_dust2": {
+      "expected_count": 2000,
+      "prediction_count": 2000,
+      "common_count": 2000,
+      "coverage_gt": 1,
+      "coverage_pred": 1
+    },
+    "de_inferno": {
+      "expected_count": 2000,
+      "prediction_count": 2000,
+      "common_count": 2000,
+      "coverage_gt": 1,
+      "coverage_pred": 1
+    },
+    "de_mirage": {
+      "expected_count": 2000,
+      "prediction_count": 2000,
+      "common_count": 2000,
+      "coverage_gt": 1,
+      "coverage_pred": 1
+    },
+    "de_nuke": {
+      "expected_count": 2000,
+      "prediction_count": 2000,
+      "common_count": 2000,
+      "coverage_gt": 1,
+      "coverage_pred": 1
+    },
+    "de_overpass": {
+      "expected_count": 2000,
+      "prediction_count": 2000,
+      "common_count": 2000,
+      "coverage_gt": 1,
+      "coverage_pred": 1
+    },
+    "de_train": {
+      "expected_count": 2000,
+      "prediction_count": 2000,
+      "common_count": 2000,
+      "coverage_gt": 1,
+      "coverage_pred": 1
+    }
+  },
+  "per_map": {
+    "cs_agency": {
+      "XY_Dist": 323.33953857421875,
+      "Z_Dist": 50.74029541015625,
+      "Pitch_Dist": 7.485441207885742,
+      "Yaw_Dist": 87.93791198730469
+    },
+    "cs_italy": {
+      "XY_Dist": 367.3597412109375,
+      "Z_Dist": 21.024097442626953,
+      "Pitch_Dist": 7.036527156829834,
+      "Yaw_Dist": 89.78750610351562
+    },
+    "de_ancient": {
+      "XY_Dist": 321.27459716796875,
+      "Z_Dist": 15.972887992858887,
+      "Pitch_Dist": 1.7039306163787842,
+      "Yaw_Dist": 89.66124725341797
+    },
+    "de_anubis": {
+      "XY_Dist": 313.11248779296875,
+      "Z_Dist": 15.806074142456055,
+      "Pitch_Dist": 1.7282838821411133,
+      "Yaw_Dist": 90.48644256591797
+    },
+    "de_dust2": {
+      "XY_Dist": 365.7809753417969,
+      "Z_Dist": 15.610810279846191,
+      "Pitch_Dist": 1.6619763374328613,
+      "Yaw_Dist": 90.31983184814453
+    },
+    "de_inferno": {
+      "XY_Dist": 366.64178466796875,
+      "Z_Dist": 13.724130630493164,
+      "Pitch_Dist": 1.7230103015899658,
+      "Yaw_Dist": 90.65404510498047
+    },
+    "de_mirage": {
+      "XY_Dist": 295.68670654296875,
+      "Z_Dist": 12.814562797546387,
+      "Pitch_Dist": 1.720943570137024,
+      "Yaw_Dist": 92.5115737915039
+    },
+    "de_nuke": {
+      "XY_Dist": 278.1028137207031,
+      "Z_Dist": 18.156694412231445,
+      "Pitch_Dist": 3.4311859607696533,
+      "Yaw_Dist": 91.51909637451172
+    },
+    "de_overpass": {
+      "XY_Dist": 341.0252380371094,
+      "Z_Dist": 32.97502517700195,
+      "Pitch_Dist": 1.9496355056762695,
+      "Yaw_Dist": 91.13799285888672
+    },
+    "de_train": {
+      "XY_Dist": 356.9454040527344,
+      "Z_Dist": 18.644968032836914,
+      "Pitch_Dist": 2.536634683609009,
+      "Yaw_Dist": 89.2524185180664
+    }
+  },
+  "metrics_macro_map": {
+    "XY_Dist": 332.9269287109375,
+    "Z_Dist": 21.54695463180542,
+    "Pitch_Dist": 3.0977569222450256,
+    "Yaw_Dist": 90.326806640625
+  },
+  "benchmark_manifest": "/home/jiahao/task/UniLIP/data/csgo_benchmark_v2/benchmark_manifest.json",
+  "benchmark_manifest_sha256": "4debad27e0d481d31587a537325d6781247934551a7248885e686ed94046ba47",
+  "minimal_dataset_report": "/home/jiahao/task/UniLIP/data/csgo_benchmark_v2/minimal_dataset_report.json",
+  "minimal_dataset_report_sha256": "1b7eff2206934f25c03de6aecd445b8094a3940ad875f9cd1803fe953c0185a4",
+  "evaluator_config": "/home/jiahao/task/csgo_benchmark_v2_eval_general/benchmark_v2.yaml",
+  "details": {
+    "split": "seen_discrete_test",
+    "predictions_jsonl": "/home/jiahao/task/X-VLA/outputs/csgo_benchmark_v2_seen10/X-VLA/seed_0/localization/predictions.jsonl",
+    "prediction_pose_space": "normalized"
+  }
+}

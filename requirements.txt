@@ -1,0 +1,10 @@
+# The independent evaluator's setup_env.sh installs pinned PyTorch/torchvision
+# wheels separately to select its explicit CPU or cu128 backend.
+numpy==1.26.4
+Pillow==10.4.0
+torchmetrics==1.8.2
+torch-fidelity==0.4.0
+scipy==1.17.0
+opencv-python-headless==4.11.0.86
+PyYAML==6.0.3
+requests==2.32.3
