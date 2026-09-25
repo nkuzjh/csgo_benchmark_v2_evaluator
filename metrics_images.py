@@ -7,7 +7,10 @@ The resize, batch aggregation and metric implementations intentionally follow
 from __future__ import annotations
 
 from pathlib import Path
+import tempfile
+import threading
 from typing import Sequence
+from unittest.mock import patch
 
 import torch
 import torch.nn.functional as F
@@ -18,6 +21,41 @@ from torchvision.transforms import InterpolationMode
 from torchmetrics.image import PeakSignalNoiseRatio, StructuralSimilarityIndexMeasure
 from torchmetrics.image.fid import FrechetInceptionDistance
 from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity
+
+from metric_assets import resolve_asset
+
+
+_LPIPS_HUB_LOCK = threading.Lock()
+_ALEXNET_HUB_FILENAME = "alexnet-owt-7be5be79.pth"
+
+
+def _make_lpips_metric() -> LearnedPerceptualImagePatchSimilarity:
+    """Let native TorchMetrics load the validated AlexNet through Torch Hub.
+
+    TorchMetrics 1.8.2 does not expose an AlexNet weights path. Its torchvision
+    constructor checks this Torch Hub filename before considering a download.
+    The temporary symlink avoids copying the large checkpoint or changing the
+    source asset, and the download guard makes version drift fail locally.
+    """
+
+    alexnet_path = resolve_asset("alexnet")
+    with _LPIPS_HUB_LOCK, tempfile.TemporaryDirectory(prefix="csgo-lpips-") as temporary_dir:
+        checkpoint_dir = Path(temporary_dir) / "checkpoints"
+        checkpoint_dir.mkdir()
+        (checkpoint_dir / _ALEXNET_HUB_FILENAME).symlink_to(alexnet_path.resolve())
+        # Preserve whether Torch Hub had an explicit override at all. Restoring
+        # only get_dir() would freeze an environment-derived default directory.
+        previous_hub_override = torch.hub._hub_dir
+        try:
+            torch.hub.set_dir(temporary_dir)
+            with patch.object(
+                torch.hub,
+                "download_url_to_file",
+                side_effect=RuntimeError("LPIPS AlexNet weights must be available as a validated local asset"),
+            ):
+                return LearnedPerceptualImagePatchSimilarity(net_type="alex")
+        finally:
+            torch.hub._hub_dir = previous_hub_override
 
 
 class PairedImageDataset(Dataset):
@@ -111,7 +149,7 @@ def compute_lpips(
     device: str,
     num_workers: int = 4,
 ) -> float:
-    lpips_metric = LearnedPerceptualImagePatchSimilarity(net_type="alex").to(device)
+    lpips_metric = _make_lpips_metric().to(device)
     dataset = PairedImageDataset(gt_paths, pred_paths, size=size, uint8=False)
     loader = DataLoader(dataset, batch_size=batch_size, num_workers=num_workers)
     total_lpips = 0.0
@@ -195,7 +233,10 @@ def compute_fid(
     device: str,
     num_workers: int = 4,
 ) -> float:
-    fid = FrechetInceptionDistance(feature=2048).to(device)
+    fid = FrechetInceptionDistance(
+        feature=2048,
+        feature_extractor_weights_path=str(resolve_asset("inception")),
+    ).to(device)
     gt_dataset = SingleImageDataset(gt_paths, size=299)
     pred_dataset = SingleImageDataset(pred_paths, size=299)
     gt_loader = DataLoader(gt_dataset, batch_size=batch_size, num_workers=num_workers)

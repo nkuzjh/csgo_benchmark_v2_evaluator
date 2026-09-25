@@ -16,79 +16,47 @@ import torch
 import hashlib
 import os
 import glob
-import requests
-import re
-import html
-import io
-import uuid
+from pathlib import Path
+
+from metric_assets import resolve_asset
 
 _feature_detector_cache = dict()
+_DEFAULT_DETECTOR_URL = 'https://www.dropbox.com/s/ge9e5ujwgetktms/i3d_torchscript.pt?dl=1'
 
-# this is a helper function that allows to download a file from the internet cache it and open it as if it was a normal file
-def open_url(url, num_attempts=10, verbose=False, cache_dir=None):
-    assert num_attempts >=1
+# Keep the upstream URL argument, but resolve it to an existing local file.
+def _detector_path(detector_url, cache_dir=None):
+    if detector_url == _DEFAULT_DETECTOR_URL:
+        preferred_dir = cache_dir or os.environ.get('UNILIP_FVD_CACHE_DIR')
+        return resolve_asset('i3d', preferred_dirs=(preferred_dir,) if preferred_dir else ())
 
-    if cache_dir is None:
-        # Keep the upstream cache naming and URL hash, while allowing the
-        # evaluator to reuse UniLIP's already-downloaded I3D TorchScript file.
-        cache_dir = os.environ.get('UNILIP_FVD_CACHE_DIR', './loaded_models')
-    url_md5 = hashlib.md5(url.encode("utf-8")).hexdigest()
-    cache_files = glob.glob(os.path.join(cache_dir, url_md5 + "_*"))
+    local_path = Path(detector_url).expanduser()
+    if local_path.is_file():
+        return local_path
+
+    # A nonstandard URL may still use an existing upstream-named cache file.
+    # Runtime metric evaluation never fetches missing weights.
+    cache_root = Path(cache_dir or os.environ.get('UNILIP_FVD_CACHE_DIR', './loaded_models'))
+    url_md5 = hashlib.md5(detector_url.encode('utf-8')).hexdigest()
+    cache_files = [Path(path) for path in glob.glob(str(cache_root / (url_md5 + '_*'))) if Path(path).is_file()]
     if len(cache_files) == 1:
-        f_name = cache_files[0]
-        return open(f_name, 'rb')
-    
-    with requests.Session() as session:
-        if verbose:
-            print("Downloading ", url, flush=True)
-        for attempts_left in reversed(range(num_attempts)):
-            try:
-                with session.get(url) as res:
-                    res.raise_for_status()
-                    if len(res.content) == 0:
-                        raise IOError("No data received")
-                    if len(res.content) < 8192:
-                        content_str = res.content.decode("utf-8")
-                        if "download_warning" in res.headers.get("Set-Cookie", ""):
-                            links = [html.unescape(link) for link in content_str.split('"') if "export=download" in link]
-                            if len(links) == 1:
-                                url = requests.compat.urljoin(url, links[0])
-                                raise IOError("Google Drive virus checker nag")
-                        if "Google Drive - Quota exceeded" in content_str:
-                            raise IOError("Google Drive download quota exceeded -- please try again later")
+        return cache_files[0]
+    raise FileNotFoundError(
+        f'FVD detector weights for {detector_url!r} are unavailable locally; '
+        'runtime downloads are disabled'
+    )
 
-                    match = re.search(r'filename="([^"]*)"', res.headers.get("Content-Disposition", ""))
-                    url_name = match[1] if match else url
-                    url_data = res.content
-                    if verbose:
-                        print(" done")
-                    break
-            except KeyboardInterrupt:
-                raise Exception("Interupted")
-            except:
-                if not attempts_left:
-                    if verbose:
-                        print("failed!")
-                    raise
-                if verbose:
-                    print('.')
-        
-    safe_name = re.sub(r"[^0-9a-zA-Z-._]", "_", url_name)
-    cache_file = os.path.join(cache_dir, url_md5 + "_" + safe_name)
-    temp_file = os.path.join(cache_dir, "tmp_" + uuid.uuid4().hex + "_" + url_md5 + "_" + safe_name)
-    os.makedirs(cache_dir, exist_ok=True)
-    with open(temp_file, 'wb') as f:
-        f.write(url_data)
-    os.replace(temp_file, cache_file)
 
-    return io.BytesIO(url_data)
+def open_url(url, num_attempts=10, verbose=False, cache_dir=None):
+    assert num_attempts >= 1
+    del verbose
+    return open(_detector_path(url, cache_dir=cache_dir), 'rb')
 
-# load the feature extractor either from cache or the specified URL
+# Load directly from the selected file so TorchScript sees its actual path.
 def get_feature_detector(detector_url, device):
-    key = (detector_url, device)
+    detector_path = _detector_path(detector_url)
+    key = (str(detector_path), str(device))
     if key not in _feature_detector_cache:
-        with open_url(detector_url, verbose=True) as f:
-            _feature_detector_cache[key] = torch.jit.load(f).eval().to(device)
+        _feature_detector_cache[key] = torch.jit.load(str(detector_path)).eval().to(device)
     return _feature_detector_cache[key]
 
 

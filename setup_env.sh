@@ -5,12 +5,14 @@ eval_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 venv_dir="$eval_dir/.venv"
 python_base="$eval_dir/.python311"
 backend="${CSGO_EVAL_TORCH_BACKEND:-cpu}"
+install_environment=1
+prepare_weights=1
 
 if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
   cat <<'HELP'
 Create or update the independent Python 3.11 evaluator environment at .venv.
 
-Usage: bash setup_env.sh
+Usage: bash setup_env.sh [--download-weights | --skip-weights | --weights-only]
 
 The script bootstraps a self-contained Python 3.11 runtime under .python311
 with conda if python3.11 is unavailable on PATH. It never uses or changes a
@@ -21,12 +23,29 @@ CSGO_EVAL_TORCH_BACKEND=cu128 explicitly for CUDA 12.8 wheels.
 After setup, invoke run_eval.py using .venv/bin/python. Evaluator invocations
 do not install or verify packages. Installed versions are recorded in
 .venv/install-manifest.json and .venv/pip-freeze.txt.
+
+Default / --download-weights: reuse valid UniLIP metric weights when present;
+download only missing weights into this evaluator's loaded_models directory.
+--skip-weights installs only the environment (e.g. localization-only use).
+--weights-only prepares weights using an already installed evaluator .venv.
+CSGO_UNILIP_ROOT can name a relocated UniLIP checkout. Sibling UniLIP and
+UniLP directories are searched by default. Formal evaluation never downloads.
 HELP
   exit 0
 fi
-if [[ $# -ne 0 ]]; then
-  echo "Unknown arguments. See: bash setup_env.sh --help" >&2
+if [[ $# -gt 1 ]]; then
+  echo "Choose at most one weight preparation option. See --help." >&2
   exit 2
+fi
+case "${1:-}" in
+  ""|--download-weights) ;;
+  --skip-weights) prepare_weights=0 ;;
+  --weights-only) install_environment=0 ;;
+  *) echo "Unknown argument: $1. See --help." >&2; exit 2 ;;
+esac
+
+if (( ! install_environment )); then
+  exec "$venv_dir/bin/python" "$eval_dir/prepare_metric_assets.py"
 fi
 
 case "$backend" in
@@ -133,3 +152,7 @@ print(f'Evaluator ready: {manifest_path.parent / "bin" / "python"}')
 print(f'Torch backend: {backend}; torch {torch.__version__}; torchvision {torchvision.__version__}')
 print(f'Installed version manifest: {manifest_path}')
 PY
+
+if (( prepare_weights )); then
+  "$venv_python" "$eval_dir/prepare_metric_assets.py"
+fi

@@ -204,10 +204,13 @@ def _run(
     source_equal = _metric_ast_equal(
         upstream_fvd,
         local_fvd,
-        ("get_feature_detector", "compute_feature_stats", "compute_fvd"),
+        ("compute_feature_stats", "compute_fvd"),
     )
     if not all(source_equal.values()):
         raise AssertionError(f"Copied FVD algorithm differs from upstream: {source_equal}")
+    # Loading intentionally differs: the shared evaluator resolves hash-pinned
+    # local assets and no longer downloads weights inside a metric call.
+    loader_source_equal = _metric_ast_equal(upstream_fvd, local_fvd, ("get_feature_detector",))
 
     with tempfile.TemporaryDirectory(prefix="canonical_metric_parity_", dir=EVAL_DIR) as tmp:
         gt_dir, pred_root, names, evaluator_tracks, canonical_tracks = _make_fixture(
@@ -280,8 +283,10 @@ def _run(
     cache_dir = unilip_root / "loaded_models"
     os.environ["UNILIP_FVD_CACHE_DIR"] = str(cache_dir)
     from fvd_metric.fvd import get_feature_detector
+    from metric_assets import ASSETS, resolve_asset
 
     detector = get_feature_detector(FVD_URL, "cpu")
+    detector_path = resolve_asset("i3d", preferred_dirs=[cache_dir])
     report = {
         "check": "synthetic canonical metric parity",
         "status": "pass",
@@ -293,7 +298,11 @@ def _run(
         },
         "metrics": metrics,
         "fvd_algorithm_ast_identical": source_equal,
-        "fvd_i3d_weight_cache": str(cache_dir),
+        "fvd_loader_ast_identical": loader_source_equal,
+        "fvd_loader_change": "hash-verified local asset selection; metric math is unchanged",
+        "fvd_i3d_weight_cache": str(detector_path.parent),
+        "fvd_i3d_weight_path": str(detector_path),
+        "fvd_i3d_weight_sha256": ASSETS["i3d"].sha256,
         "fvd_i3d_torchscript_loaded": True,
     }
     if run_fvd_smoke:

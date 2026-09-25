@@ -192,36 +192,32 @@ def _set_fvd_cache(
     *,
     config_path: str | Path | None = None,
 ) -> str:
-    """Select and export the I3D cache without relocating existing weights.
+    """Select an existing I3D asset, falling back to evaluator-local weights.
 
     Explicit CLI and environment paths are relative to the caller's working
     directory. The config path is relative to the config file, and the final
-    fallback stays inside this shared evaluator directory.
+    resolver then checks UniLIP and evaluator-local assets per file. Only the
+    explicit environment setup command downloads missing weights.
     """
 
-    env_override = os.environ.get("UNILIP_FVD_CACHE_DIR")
-    if override:
-        configured = override
-        relative_base = Path.cwd()
-    elif env_override:
-        configured = env_override
-        relative_base = Path.cwd()
-    else:
-        configured = config["continuous"].get("fvd_cache_dir")
+    preferred_dirs = []
+    for explicit in (override, os.environ.get("UNILIP_FVD_CACHE_DIR")):
+        if explicit:
+            preferred_dirs.append(Path(explicit).expanduser().resolve())
+    configured = config["continuous"].get("fvd_cache_dir")
+    if configured:
         config_file = (
             Path(config_path).expanduser().resolve()
             if config_path is not None
             else EVAL_DIR / "benchmark_v2.yaml"
         )
-        relative_base = config_file.parent
-
-    if configured:
         cache_dir = Path(configured).expanduser()
         if not cache_dir.is_absolute():
-            cache_dir = (relative_base / cache_dir).resolve()
-    else:
-        cache_dir = EVAL_DIR / "loaded_models"
-    cache_dir.mkdir(parents=True, exist_ok=True)
+            cache_dir = (config_file.parent / cache_dir).resolve()
+        preferred_dirs.append(cache_dir)
+    from metric_assets import resolve_asset
+
+    cache_dir = resolve_asset("i3d", preferred_dirs=preferred_dirs).parent
     os.environ["UNILIP_FVD_CACHE_DIR"] = str(cache_dir)
     return str(cache_dir)
 
@@ -326,6 +322,24 @@ def _run_generation(
         "prediction_root": str(pred_root),
         "paired_size": int(image_cfg["paired_size"]),
         "dataloader_workers": int(image_cfg["dataloader_workers"]),
+    }
+    from metric_assets import ASSETS, resolve_asset
+
+    required_assets = ["alexnet"]
+    if task == "discrete" and not smoke:
+        required_assets.append("inception")
+    if task == "continuous" and not smoke:
+        _set_fvd_cache(config, fvd_cache_dir, config_path=config_path)
+        required_assets.append("i3d")
+    details["metric_assets"] = {
+        name: {
+            "path": str(resolve_asset(
+                name,
+                preferred_dirs=[os.environ["UNILIP_FVD_CACHE_DIR"]] if name == "i3d" else [],
+            )),
+            "sha256": ASSETS[name].sha256,
+        }
+        for name in required_assets
     }
     if task == "continuous" and smoke_frame_only:
         details["continuous_frame_only"] = True

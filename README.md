@@ -31,7 +31,8 @@ setup invocation. The installed backend and exact versions are recorded in
 `.venv/install-manifest.json` and `.venv/pip-freeze.txt`.
 
 Every project can call `"$SHARED_EVAL_DIR/.venv/bin/python"` directly. Running
-the evaluator never installs or verifies packages.
+the evaluator never installs or verifies packages. Generation evaluation loads
+SHA256-verified local metric weights; it never downloads missing weights.
 
 For the target server path, install after copying this evaluator directory:
 
@@ -139,14 +140,99 @@ the string `"Infinity"`; this does not make it valid for formal output.
   --data-root "$DATA_ROOT" --frame-only
 ```
 
-Continuous FVD uses the existing I3D weights. Cache selection follows
-`--fvd-cache-dir` (CLI), then `UNILIP_FVD_CACHE_DIR`, then
-`continuous.fvd_cache_dir` in the selected config, then
-`$SHARED_EVAL_DIR/loaded_models`. Relative CLI and environment paths resolve
-from the current working directory; a relative config value resolves from the
-config file's directory. The checked-in config therefore resolves its default
-to `/home/jiahao/task/UniLIP/loaded_models`, reusing the existing weights.
-FID uses the installed torchmetrics/torch-fidelity weights.
+## Shared generation metric weights: reuse first, download only missing files
+
+`bash setup_env.sh` now prepares both the environment and all three external
+metric weights. Resolution is per weight, not per directory. An empty or
+partially populated UniLIP cache does not count as a complete installation.
+
+| Metric | External asset | Canonical filename |
+| --- | --- | --- |
+| LPIPS (`net_type="alex"`) | ImageNet AlexNet | `alexnet-owt-7be5be79.pth` |
+| FID (`feature=2048`) | torch-fidelity Inception | `weights-inception-2015-12-05-6726825d.pth` |
+| FVD | StyleGAN-V I3D TorchScript | `5780f6fd48bed6b4f055c5cac089dbee_i3d_torchscript.pt` (also accepts `i3d_torchscript.pt`) |
+
+LPIPS linear calibration weights (`alex.pth`) are already bundled with the
+pinned TorchMetrics package. This benchmark uses AlexNet LPIPS, not VGG LPIPS;
+no VGG weight is needed for the current metric implementation.
+
+For each asset, setup and runtime prefer valid weights under the configured
+UniLIP checkout's `loaded_models`, then sibling `../UniLIP/loaded_models`
+(and the alternative spelling `../UniLP/loaded_models`), then this evaluator's
+`loaded_models`. Set `CSGO_UNILIP_ROOT=/path/to/UniLIP` for another checkout;
+`UNILIP_ROOT` is also accepted. Flat files and established `checkpoints` /
+`hub/checkpoints` subdirectories are recognized. External files are read in
+place and are never copied, renamed or overwritten.
+
+- If a valid UniLIP copy exists, setup reuses it without downloading that asset.
+- Otherwise, a valid evaluator-local copy is reused.
+- If neither exists, **setup only** downloads to
+  `csgo_benchmark_v2_eval_general/loaded_models/`. A temporary file is promoted
+  only after full SHA256 verification. Partial/invalid files are not accepted.
+- During evaluation, the same search is repeated; missing assets raise an
+  error directing the user to setup, without an implicit network download.
+
+Each asset has a fixed URL and SHA256 in `metric_assets.py`. These full hashes
+were audited from the historically used local weights; the I3D hash is not
+claimed to be an independently published upstream checksum. Source selection
+is recorded in `loaded_models/metric_asset_manifest.json`; runtime does not
+trust that manifest as a substitute for checking the current source files.
+Generation result `details.metric_assets` records selected paths and hashes.
+
+On the target server:
+
+```bash
+cd /home/user/yc57963/task/csgo_benchmark_v2_eval_general
+bash setup_env.sh                       # install environment; reuse or fetch missing weights
+# Equivalent explicit spelling:
+# bash setup_env.sh --download-weights
+# Once .venv is already prepared:
+# bash setup_env.sh --weights-only
+# For localization-only deployment, skip generation weights:
+# bash setup_env.sh --skip-weights
+```
+
+`prepare_metric_assets.py --check` verifies available files without downloading
+and updates the asset inventory. The weight preparation entry also supports
+`--unilip-root`, `--preferred-dir` and `--config` for explicit source preferences.
+These one-command overrides are not persisted as runtime configuration. For a
+relocated UniLIP source, set `CSGO_UNILIP_ROOT` consistently for both setup and
+evaluation; for FVD use the same YAML or `UNILIP_FVD_CACHE_DIR` in both phases.
+The independent environment directory itself is never synchronized between
+servers; recreate it with setup. Copying valid metric files is optional because
+setup can fetch missing assets.
+
+FVD retains its existing explicit preferences: `--fvd-cache-dir`, then
+`UNILIP_FVD_CACHE_DIR`, then YAML `continuous.fvd_cache_dir`. A relative CLI/env
+value is resolved from the caller's working directory; a relative YAML value
+is resolved from the configuration directory. **These are preferred existing
+sources, not download destinations.** If the I3D file is absent there, the
+resolver continues to UniLIP/evaluator-local candidates. Setup also reads the
+FVD environment/YAML preference. `_set_fvd_cache()` exports the parent of the
+actually selected I3D file for the FVD loader. The default YAML's
+`../UniLIP/loaded_models` therefore no longer prevents local fallback.
+
+LPIPS exposes the resolved AlexNet file through a temporary native Torch Hub
+cache link during construction; the original hub setting is restored afterwards.
+FID passes the resolved file directly to TorchMetrics, and FVD opens its selected
+TorchScript file directly. None relies on `~/.cache/torch` being populated.
+The metric networks, calibration, input transforms, feature dimensions and
+aggregation rules are unchanged.
+
+2026-09-25 acceptance: 9 resolver/preparation tests, 5 runtime-loader tests and
+3 entry-point cache-preference tests passed. Actual preparation reused UniLIP's
+I3D file and downloaded the missing AlexNet/Inception files into this directory.
+CPU construction with network access blocked confirmed LPIPS's 20 and FID's
+566 state tensors match the prior native cached constructors exactly; I3D
+TorchScript loading also passed. See
+`validation/metric_asset_loading_acceptance_20260925.json`. No metric forward,
+benchmark inference or formal evaluation was run. The I3D missing-source
+download branch was covered with mocked downloads; the local I3D copy was
+reused in the real setup. All three upstream URLs responded to a HEAD check.
+
+The canonical parity script now checks the unchanged FVD feature-statistics
+and score functions separately from its intentionally changed asset loader;
+historical parity reports have not been overwritten or rerun.
 
 `BenchmarkData(data_root).rows(split)` provides the manifest-driven data
 contract for `seen_train`, `seen_validation`, `seen_discrete_test` and
