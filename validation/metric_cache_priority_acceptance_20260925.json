@@ -1,0 +1,22 @@
+{
+  "scope": "Path resolution and SHA256 only; no model loading, downloads, inference or evaluation",
+  "setup_runtime_paths_match": true,
+  "network_blocked": true,
+  "assets": {
+    "alexnet": {
+      "path": "/home/jiahao/.cache/torch/hub/checkpoints/alexnet-owt-7be5be79.pth",
+      "source": "torch cache",
+      "sha256": "7be5be791159472b1fbf3c69796f7cb30dca7ad8466c2df70058c37116cdee02"
+    },
+    "inception": {
+      "path": "/home/jiahao/.cache/torch/hub/checkpoints/weights-inception-2015-12-05-6726825d.pth",
+      "source": "torch cache",
+      "sha256": "6726825d0af5f729cebd5821db510b11b1cfad8faad88a03f1befd49fb9129b2"
+    },
+    "i3d": {
+      "path": "/home/jiahao/task/UniLIP/loaded_models/5780f6fd48bed6b4f055c5cac089dbee_i3d_torchscript.pt",
+      "source": "preferred",
+      "sha256": "bec6519f66ea534e953026b4ae2c65553c17bf105611c746d904657e5860a5e2"
+    }
+  }
+}

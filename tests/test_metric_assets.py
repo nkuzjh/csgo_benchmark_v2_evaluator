@@ -19,6 +19,10 @@ class MetricAssetTests(unittest.TestCase):
         self.root = Path(self.directory.name)
         self.evaluator = self.root / "evaluator"
         self.evaluator.mkdir()
+        self.torch_home = self.root / "torch-home"
+        environment_patch = patch.dict(metric_assets.os.environ, {"TORCH_HOME": str(self.torch_home)})
+        environment_patch.start()
+        self.addCleanup(environment_patch.stop)
         self.legacy = self.root / "UniLIP" / "loaded_models"
         self.legacy.mkdir(parents=True)
         self.good = {name: f"valid {name}".encode() for name in metric_assets.ASSETS}
@@ -37,6 +41,50 @@ class MetricAssetTests(unittest.TestCase):
         path = directory / f"{name}.bin"
         path.write_bytes(self.good[name] if content is None else content)
         return path
+
+    def test_torch_cache_precedes_preferred_unilip_and_evaluator(self):
+        cache = self.write(self.torch_home / "hub" / "checkpoints", "i3d")
+        preferred = self.root / "preferred"
+        self.write(preferred, "i3d")
+        self.write(self.legacy, "i3d")
+        self.write(self.evaluator / "loaded_models", "i3d")
+
+        with patch.object(metric_assets.urllib.request, "urlopen", side_effect=AssertionError("network")):
+            selected = metric_assets.prepare_assets(
+                ("i3d",), evaluator_dir=self.evaluator, preferred_dirs=(preferred,)
+            )
+
+        self.assertEqual(selected["i3d"]["path"], str(cache))
+        self.assertEqual(selected["i3d"]["source"], "torch cache")
+
+    def test_missing_torch_cache_falls_back_to_unilip(self):
+        legacy = self.write(self.legacy, "alexnet")
+        self.assertEqual(metric_assets.resolve_asset("alexnet", evaluator_dir=self.evaluator), legacy)
+
+    def test_invalid_torch_cache_falls_back_without_modifying_bad_file(self):
+        bad = self.write(self.torch_home / "hub" / "checkpoints", "i3d", content=b"bad hash")
+        legacy = self.write(self.legacy, "i3d")
+        self.assertEqual(metric_assets.resolve_asset("i3d", evaluator_dir=self.evaluator), legacy)
+        self.assertEqual(bad.read_bytes(), b"bad hash")
+
+    def test_torch_cache_dir_uses_torch_home_then_xdg_then_home(self):
+        with patch.dict(metric_assets.os.environ, {
+            "TORCH_HOME": str(self.root / "explicit-torch"),
+            "XDG_CACHE_HOME": str(self.root / "xdg"),
+        }):
+            self.assertEqual(metric_assets._torch_cache_dir(), self.root / "explicit-torch")
+        with patch.dict(metric_assets.os.environ, {
+            "TORCH_HOME": "", "XDG_CACHE_HOME": str(self.root / "xdg"),
+        }):
+            self.assertEqual(metric_assets._torch_cache_dir(), self.root / "xdg" / "torch")
+        with patch.dict(metric_assets.os.environ, {
+            "XDG_CACHE_HOME": str(self.root / "xdg"), "HOME": str(self.root / "home"),
+        }, clear=True):
+            self.assertEqual(metric_assets._torch_cache_dir(), self.root / "xdg" / "torch")
+        with patch.dict(metric_assets.os.environ, {
+            "TORCH_HOME": "", "XDG_CACHE_HOME": "", "HOME": str(self.root / "home"),
+        }):
+            self.assertEqual(metric_assets._torch_cache_dir(), self.root / "home" / ".cache" / "torch")
 
     def test_preferred_weight_reused_without_network_or_mutation(self):
         preferred = self.root / "preferred" / "hub" / "checkpoints"

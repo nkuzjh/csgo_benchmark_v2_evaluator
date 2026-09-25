@@ -58,6 +58,19 @@ def _as_paths(values: Iterable[str | os.PathLike[str]] | None) -> list[Path]:
     return [Path(value).expanduser().resolve() for value in values or ()]
 
 
+def _torch_cache_dir() -> Path:
+    """Resolve the user's Torch cache without importing/loading PyTorch.
+
+    Respect TORCH_HOME and XDG_CACHE_HOME in both setup and evaluation. Do not
+    consult torch.hub.set_dir(): LPIPS temporarily redirects it during loading.
+    """
+    configured = os.environ.get("TORCH_HOME")
+    if configured:
+        return Path(configured).expanduser().resolve()
+    cache_home = Path(os.environ.get("XDG_CACHE_HOME") or "~/.cache").expanduser()
+    return (cache_home / "torch").resolve()
+
+
 def _unilip_roots(evaluator_dir: Path, supplied: Iterable[str | os.PathLike[str]] | None) -> list[Path]:
     roots = _as_paths(supplied)
     for key in ("CSGO_UNILIP_ROOT", "UNILIP_ROOT"):
@@ -120,7 +133,8 @@ def _locate(
         raise ValueError(f"Unknown metric asset {name!r}; expected one of {', '.join(ASSETS)}")
     evaluator = _evaluator_dir(evaluator_dir)
     spec = ASSETS[name]
-    sources = [("preferred", path) for path in _as_paths(preferred_dirs)]
+    sources = [("torch cache", _torch_cache_dir() / "hub" / "checkpoints")]
+    sources += [("preferred", path) for path in _as_paths(preferred_dirs)]
     sources += [("UniLIP", root / "loaded_models") for root in _unilip_roots(evaluator, unilip_roots)]
     sources.append(("evaluator", evaluator / "loaded_models"))
     seen: set[Path] = set()
@@ -148,7 +162,10 @@ def resolve_asset(
     preferred_dirs: Iterable[str | os.PathLike[str]] = (),
     unilip_roots: Iterable[str | os.PathLike[str]] | None = None,
 ) -> Path:
-    """Return a SHA256-verified local weight. This function never downloads."""
+    """Resolve cache first, then configured/UniLIP sources, then evaluator.
+
+    Return a SHA256-verified local weight; never download during resolution.
+    """
     return _locate(name, evaluator_dir=evaluator_dir, preferred_dirs=preferred_dirs,
                    unilip_roots=unilip_roots)[0]
 

@@ -43,7 +43,7 @@ continuous:
   fvd_batch_size_divisor: 4
   expected_clips_per_map: 20
   expected_frames_per_clip: 64
-  # Preferred existing I3D cache. If the weight is absent, runtime checks
+  # Existing I3D source searched after the user's Torch Hub cache. If absent, check
   # sibling/configured UniLIP roots, then this evaluator's loaded_models.
   # setup_env.sh downloads missing weights only into the latter directory.
   fvd_cache_dir: ../UniLIP/loaded_models

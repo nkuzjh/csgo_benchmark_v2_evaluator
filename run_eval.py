@@ -192,11 +192,12 @@ def _set_fvd_cache(
     *,
     config_path: str | Path | None = None,
 ) -> str:
-    """Select an existing I3D asset, falling back to evaluator-local weights.
+    """Select an existing I3D asset, checking the user's Torch cache first.
 
     Explicit CLI and environment paths are relative to the caller's working
     directory. The config path is relative to the config file, and the final
-    resolver then checks UniLIP and evaluator-local assets per file. Only the
+    resolver checks the Torch cache before these preferences, then UniLIP and
+    evaluator-local assets per file. Only the
     explicit environment setup command downloads missing weights.
     """
 

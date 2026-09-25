@@ -13,7 +13,7 @@ from metric_assets import MissingAssetError, prepare_assets
 
 
 def _i3d_preferred(config_path: Path) -> tuple[Path, ...]:
-    """Match run_eval's environment-over-config order for the FVD cache."""
+    """Match run_eval's FVD preferences, searched after the user's Torch cache."""
     preferred: list[Path] = []
     configured_env = os.environ.get("UNILIP_FVD_CACHE_DIR")
     if configured_env:
@@ -33,7 +33,7 @@ def main() -> int:
     parser.add_argument("--check", action="store_true", help="Verify locally available weights without downloading")
     parser.add_argument("--evaluator-dir", help="Evaluator directory; defaults to this script's directory")
     parser.add_argument("--config", help="Benchmark YAML path; defaults to EVALUATOR_DIR/benchmark_v2.yaml")
-    parser.add_argument("--preferred-dir", action="append", default=[], help="Preferred weight directory (repeatable)")
+    parser.add_argument("--preferred-dir", action="append", default=[], help="Weight directory searched after the user's Torch cache (repeatable)")
     parser.add_argument("--unilip-root", action="append", default=[], help="UniLIP project root (repeatable)")
     args = parser.parse_args()
     evaluator = Path(args.evaluator_dir).expanduser().resolve() if args.evaluator_dir else Path(__file__).resolve().parent

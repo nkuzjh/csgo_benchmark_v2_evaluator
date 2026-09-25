@@ -156,17 +156,23 @@ LPIPS linear calibration weights (`alex.pth`) are already bundled with the
 pinned TorchMetrics package. This benchmark uses AlexNet LPIPS, not VGG LPIPS;
 no VGG weight is needed for the current metric implementation.
 
-For each asset, setup and runtime prefer valid weights under the configured
+For each asset, setup and runtime first check the user's Torch Hub checkpoint
+cache (`~/.cache/torch/hub/checkpoints` by default), then the configured
 UniLIP checkout's `loaded_models`, then sibling `../UniLIP/loaded_models`
 (and the alternative spelling `../UniLP/loaded_models`), then this evaluator's
 `loaded_models`. Set `CSGO_UNILIP_ROOT=/path/to/UniLIP` for another checkout;
 `UNILIP_ROOT` is also accepted. Flat files and established `checkpoints` /
 `hub/checkpoints` subdirectories are recognized. External files are read in
-place and are never copied, renamed or overwritten.
+place and are never copied, renamed or overwritten. The Torch cache root is
+`TORCH_HOME` when nonempty, otherwise `$XDG_CACHE_HOME/torch` when nonempty,
+otherwise `~/.cache/torch`; checkpoints are read under `hub/checkpoints`.
+Use the same environment variables during setup and evaluation. This path
+resolution does not require importing PyTorch and is unaffected by LPIPS's
+temporary `torch.hub.set_dir()` during model construction.
 
-- If a valid UniLIP copy exists, setup reuses it without downloading that asset.
-- Otherwise, a valid evaluator-local copy is reused.
-- If neither exists, **setup only** downloads to
+- If a valid user-cache copy exists, setup and evaluation use it first.
+- Otherwise, valid UniLIP and then evaluator-local copies are tried.
+- If no valid copy exists in any source, **setup only** downloads to
   `csgo_benchmark_v2_eval_general/loaded_models/`. A temporary file is promoted
   only after full SHA256 verification. Partial/invalid files are not accepted.
 - During evaluation, the same search is repeated; missing assets raise an
@@ -194,7 +200,8 @@ bash setup_env.sh                       # install environment; reuse or fetch mi
 
 `prepare_metric_assets.py --check` verifies available files without downloading
 and updates the asset inventory. The weight preparation entry also supports
-`--unilip-root`, `--preferred-dir` and `--config` for explicit source preferences.
+`--unilip-root`, `--preferred-dir` and `--config` for source preferences after
+the user's Torch cache.
 These one-command overrides are not persisted as runtime configuration. For a
 relocated UniLIP source, set `CSGO_UNILIP_ROOT` consistently for both setup and
 evaluation; for FVD use the same YAML or `UNILIP_FVD_CACHE_DIR` in both phases.
@@ -202,7 +209,7 @@ The independent environment directory itself is never synchronized between
 servers; recreate it with setup. Copying valid metric files is optional because
 setup can fetch missing assets.
 
-FVD retains its existing explicit preferences: `--fvd-cache-dir`, then
+After checking the user's Torch cache, FVD checks `--fvd-cache-dir`, then
 `UNILIP_FVD_CACHE_DIR`, then YAML `continuous.fvd_cache_dir`. A relative CLI/env
 value is resolved from the caller's working directory; a relative YAML value
 is resolved from the configuration directory. **These are preferred existing
@@ -215,7 +222,9 @@ actually selected I3D file for the FVD loader. The default YAML's
 LPIPS exposes the resolved AlexNet file through a temporary native Torch Hub
 cache link during construction; the original hub setting is restored afterwards.
 FID passes the resolved file directly to TorchMetrics, and FVD opens its selected
-TorchScript file directly. None relies on `~/.cache/torch` being populated.
+TorchScript file directly. A populated user cache is reused first; an empty
+cache still permits UniLIP and evaluator-local fallback. Cache files with an
+incorrect SHA256 are skipped, never overwritten in place.
 The metric networks, calibration, input transforms, feature dimensions and
 aggregation rules are unchanged.
 
@@ -229,6 +238,14 @@ TorchScript loading also passed. See
 benchmark inference or formal evaluation was run. The I3D missing-source
 download branch was covered with mocked downloads; the local I3D copy was
 reused in the real setup. All three upstream URLs responded to a HEAD check.
+
+2026-09-25 cache-priority follow-up: user Torch cache now precedes every other
+source, including explicit FVD paths. A network-blocked path/SHA256 check
+confirmed setup and runtime both select the existing user-cache AlexNet and
+Inception files and the UniLIP I3D file. See
+`validation/metric_cache_priority_acceptance_20260925.json`. No new download,
+model forward or benchmark evaluation was performed for this change; the
+earlier evaluator-local copies remain available as fallbacks.
 
 The canonical parity script now checks the unchanged FVD feature-statistics
 and score functions separately from its intentionally changed asset loader;

@@ -24,8 +24,10 @@ After setup, invoke run_eval.py using .venv/bin/python. Evaluator invocations
 do not install or verify packages. Installed versions are recorded in
 .venv/install-manifest.json and .venv/pip-freeze.txt.
 
-Default / --download-weights: reuse valid UniLIP metric weights when present;
-download only missing weights into this evaluator's loaded_models directory.
+Default / --download-weights: reuse valid user Torch cache weights first,
+then UniLIP loaded_models, then this evaluator's loaded_models directory.
+Download only weights missing from all sources into evaluator loaded_models.
+Torch cache honors TORCH_HOME, then XDG_CACHE_HOME/torch, then ~/.cache/torch.
 --skip-weights installs only the environment (e.g. localization-only use).
 --weights-only prepares weights using an already installed evaluator .venv.
 CSGO_UNILIP_ROOT can name a relocated UniLIP checkout. Sibling UniLIP and
